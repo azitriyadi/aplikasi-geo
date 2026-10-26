@@ -1,18 +1,130 @@
 <!DOCTYPE html>
 <html lang="id">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🗺️</text></svg>" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="GeoJSON Route Map — Aplikasi peta interaktif untuk melihat jalur GeoJSON di OpenStreetMap" />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="GeoJSON Route Map - Aplikasi peta interaktif dan validasi jalur GeoJSON menggunakan CrootJS dan OpenStreetMap.">
     <title>GeoJSON Route Map</title>
-    <!-- Google Fonts: Inter -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+    <!-- Google Fonts: Inter & Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+    <div class="app-layout">
+        <!-- Header Aplikasi -->
+        <header class="app-header">
+            <div class="header-branding">
+                <div class="header-icon" aria-hidden="true">🗺️</div>
+                <div class="header-titles">
+                    <h1 class="header-title">GeoJSON Route Map</h1>
+                    <p class="header-subtitle">Visualisasi & Validasi Jalur Berbasis CrootJS</p>
+                </div>
+            </div>
+
+            <div class="header-actions">
+                <div id="network-badge" class="badge badge-online" title="Status koneksi peta">
+                    <span class="badge-dot"></span>
+                    <span id="network-text">OSM Online</span>
+                </div>
+                <button type="button" id="btn-fit-all" class="btn btn-secondary" title="Sesuaikan zoom ke semua jalur valid">
+                    <span class="btn-icon">🔍</span>
+                    <span class="btn-label">Lihat Semua</span>
+                </button>
+                <button type="button" id="btn-reload-default" class="btn btn-secondary" title="Muat ulang file geo-map.geojson bawaan">
+                    <span class="btn-icon">🔄</span>
+                    <span class="btn-label">Muat Ulang</span>
+                </button>
+                <label for="file-input-geojson" class="btn btn-primary" title="Buka file GeoJSON dari perangkat Anda">
+                    <span class="btn-icon">📁</span>
+                    <span class="btn-label">Muat GeoJSON</span>
+                </label>
+                <input type="file" id="file-input-geojson" class="visually-hidden" accept=".geojson,application/geo+json,application/json">
+            </div>
+        </header>
+
+        <!-- Main Workspace -->
+        <main class="app-main">
+            <!-- Sidebar Informasi & Legenda -->
+            <aside class="sidebar" id="sidebar">
+                <!-- Status & Notifikasi Error/Peringatan -->
+                <div id="alert-banner" class="alert-banner is-hidden" role="alert">
+                    <div class="alert-icon" id="alert-icon">⚠️</div>
+                    <div class="alert-content">
+                        <strong class="alert-title" id="alert-title">Pemberitahuan</strong>
+                        <p class="alert-message" id="alert-message"></p>
+                    </div>
+                    <button type="button" id="btn-close-alert" class="alert-close" aria-label="Tutup notifikasi">&times;</button>
+                </div>
+
+                <!-- Ringkasan Validasi GeoJSON -->
+                <section class="card validation-card" aria-labelledby="validation-heading">
+                    <div class="card-header">
+                        <h2 id="validation-heading" class="card-title">Status Validasi GeoJSON</h2>
+                        <span id="validation-status-badge" class="status-pill status-loading">Memuat...</span>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-value" id="stat-total-features">0</span>
+                            <span class="stat-label">Total Fitur</span>
+                        </div>
+                        <div class="stat-item stat-valid">
+                            <span class="stat-value" id="stat-valid-features">0</span>
+                            <span class="stat-label">Jalur Valid</span>
+                        </div>
+                        <div class="stat-item stat-warning">
+                            <span class="stat-value" id="stat-invalid-features">0</span>
+                            <span class="stat-label">Peringatan</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="stat-total-distance">0 km</span>
+                            <span class="stat-label">Total Panjang</span>
+                        </div>
+                    </div>
+                    <div id="validation-detail-box" class="validation-detail is-hidden">
+                        <!-- Dynamic details on validation issues (e.g. single coordinate LineString) -->
+                    </div>
+                </section>
+
+                <!-- Panel Detail Jalur Terpilih -->
+                <section class="card detail-card" aria-labelledby="detail-heading">
+                    <div class="card-header">
+                        <h2 id="detail-heading" class="card-title">Jalur Terpilih</h2>
+                        <span id="selected-route-badge" class="badge-tag is-hidden">Aktif</span>
+                    </div>
+                    <div id="selected-route-content" class="detail-content">
+                        <p class="empty-state-text">Klik salah satu garis pada peta atau daftar legenda untuk melihat informasi rute.</p>
+                    </div>
+                </section>
+
+                <!-- Legenda Jalur -->
+                <section class="card legend-card" aria-labelledby="legend-heading">
+                    <div class="card-header">
+                        <h2 id="legend-heading" class="card-title">Legenda Jalur</h2>
+                        <span id="legend-count-badge" class="badge-count">0 Jalur</span>
+                    </div>
+                    <div id="legend-list" class="legend-list" role="list">
+                        <!-- Dynamic items generated via JavaScript -->
+                    </div>
+                </section>
+            </aside>
+
+            <!-- Kontainer Peta -->
+            <section class="map-wrapper" aria-label="Tampilan Peta Interaktif">
+                <div id="network-warning" class="network-warning is-hidden" role="alert">
+                    <span class="network-warning-icon">⚠️</span>
+                    <span id="network-warning-text">Koneksi internet terputus. Peta dasar OpenStreetMap tidak dapat memuat tile baru.</span>
+                </div>
+                <div id="map" class="map-container"></div>
+                <div class="map-instructions" aria-hidden="true">
+                    <span>💡 Geser &amp; scroll untuk navigasi. Klik jalur untuk detail.</span>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- ES Module Utama (Sesuai Konvensi CrootJS) -->
+    <script type="module" src="./main.js"></script>
+</body>
 </html>
